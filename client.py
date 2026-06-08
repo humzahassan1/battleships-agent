@@ -5,7 +5,9 @@ Mints a fresh JWT for every request. Points at BASE_URL env var
 so the simulator works without credentials.
 """
 
+import http.client
 import os
+import time
 from typing import Any
 
 import urllib.request
@@ -31,22 +33,37 @@ def _get_auth_header(capability: str) -> dict:
     return auth_header(get_agent_id(), capability)
 
 
+_TRANSIENT = (
+    http.client.RemoteDisconnected,
+    ConnectionResetError,
+    TimeoutError,
+    http.client.IncompleteRead,
+)
+
+
 def _request(method: str, path: str, capability: str, body: Any = None) -> dict:
     url = f"{BASE_URL}{path}"
     data = _json.dumps(body).encode() if body is not None else None
-    headers = {
-        "Accept": "application/json",
-        **_get_auth_header(capability),
-    }
-    if data is not None:
-        headers["Content-Type"] = "application/json"
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req) as resp:
-            return _json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        body_text = e.read().decode(errors="replace")
-        raise RuntimeError(f"HTTP {e.code} {e.reason} — {body_text}") from e
+    last_err: Exception | None = None
+    for attempt in range(3):
+        if attempt:
+            time.sleep(attempt)   # 0s, 1s, 2s
+        headers = {
+            "Accept": "application/json",
+            **_get_auth_header(capability),  # fresh token on every retry
+        }
+        if data is not None:
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req) as resp:
+                return _json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            body_text = e.read().decode(errors="replace")
+            raise RuntimeError(f"HTTP {e.code} {e.reason} — {body_text}") from e
+        except _TRANSIENT as e:
+            last_err = e
+    raise RuntimeError(f"Network error after 3 attempts: {last_err}") from last_err
 
 
 # ── Six capability routes ──────────────────────────────────────────────────────
