@@ -22,13 +22,36 @@ SHIP_LENGTHS: dict[str, int] = {
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+def _edge_biased(n: int, strength: int = 4) -> int:
+    """Sample from [0, n) with `strength`× weight on the outermost 2 positions.
+
+    Placing ships near the edge exploits a property of density-based attackers:
+    interior cells receive higher probability mass because more ship placements
+    pass through them. Edge cells have fewer valid placements, so the opponent
+    hunts the center first — wasting shots while our fleet hides at the margins.
+    """
+    if n <= 4:
+        return random.randrange(n)
+    pool = (
+        [0, 1, n - 2, n - 1] * strength        # edges: boosted weight
+        + list(range(2, n - 2))                  # interior: weight 1
+    )
+    return random.choice(pool)
+
+
 def choose_layout(state: dict) -> list[dict]:
-    """Fleet placement with 1-cell buffer between ships to prevent chain-hunting."""
+    """Fleet placement: 1-cell buffer between ships + edge-biased positions.
+
+    Horizontal ships are biased toward rows 0/1/8/9 (top/bottom edges).
+    Vertical ships are biased toward cols 0/1/8/9 (left/right edges).
+    This forces density-based opponents to waste shots hunting the center
+    while our ships sit at the periphery.
+    Falls back to uniform placement if edge-biased fails (rare).
+    """
     rules = state["board"]
     R, C = rules["gridRows"], rules["gridCols"]
-    placements: list[dict] = []
 
-    def _try_place(use_buffer: bool) -> list[dict] | None:
+    def _try_place(use_buffer: bool, edge_bias: bool) -> "list[dict] | None":
         ship_cells: set[tuple[int, int]] = set()
         forbidden: set[tuple[int, int]] = set()
         result: list[dict] = []
@@ -38,12 +61,12 @@ def choose_layout(state: dict) -> list[dict]:
             for _ in range(2000):
                 horiz = random.random() < 0.5
                 if horiz:
-                    r = random.randrange(R)
+                    r = _edge_biased(R) if edge_bias else random.randrange(R)
                     c = random.randrange(C - length + 1)
                     cells = [(r, c + i) for i in range(length)]
                 else:
                     r = random.randrange(R - length + 1)
-                    c = random.randrange(C)
+                    c = _edge_biased(C) if edge_bias else random.randrange(C)
                     cells = [(r + i, c) for i in range(length)]
                 blocked = forbidden if use_buffer else ship_cells
                 if any(cell in blocked for cell in cells):
@@ -65,7 +88,12 @@ def choose_layout(state: dict) -> list[dict]:
                 return None
         return result
 
-    return _try_place(use_buffer=True) or _try_place(use_buffer=False)  # type: ignore[return-value]
+    return (
+        _try_place(use_buffer=True,  edge_bias=True)
+        or _try_place(use_buffer=False, edge_bias=True)
+        or _try_place(use_buffer=True,  edge_bias=False)
+        or _try_place(use_buffer=False, edge_bias=False)  # type: ignore[return-value]
+    )
 
 
 def _find_sunk_cells(shots: list[dict]) -> set[tuple[int, int]]:
