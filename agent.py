@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import client
 from strategy import choose_layout, choose_shot
 
-NOTE_DEFAULT = "spaced placement +1-cell buffer, persistent signer"
+NOTE_DEFAULT = "edge-biased placement + parity hunt + persistent signer"
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "attempts.jsonl")
 
 

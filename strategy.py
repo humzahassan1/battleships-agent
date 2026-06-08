@@ -259,19 +259,33 @@ def choose_shot_density(state: dict, hit_weight: float = 100.0) -> dict:
                     for r2, c2 in cells:
                         density[r2][c2] += w
 
-    # Pick best untried cell
+    # In pure hunt mode (no active hits), restrict to a parity/checkerboard grid.
+    # Every ship of length >= 2 spans at least one even-parity cell, so we are
+    # guaranteed to hit every remaining ship while visiting only half the board.
+    # This roughly halves hunt-phase shots and never misses a target.
+    min_remaining = min(remaining) if remaining else 1
+    use_parity = (not unresolved) and (min_remaining >= 2)
+
     best_r = best_c = 0
     best_score = -1.0
     for r in range(R):
         for c in range(C):
-            if (r, c) not in tried and density[r][c] > best_score:
+            if (r, c) in tried:
+                continue
+            if use_parity and (r + c) % 2 != 0:
+                continue
+            if density[r][c] > best_score:
                 best_score = density[r][c]
                 best_r, best_c = r, c
 
     if best_score < 0:
-        # Fallback: shouldn't happen in a normal game
-        untried = [(r, c) for r in range(R) for c in range(C) if (r, c) not in tried]
-        best_r, best_c = random.choice(untried)
+        # Parity grid exhausted (only destroyer left and we've covered all parity cells)
+        # or no density signal at all — fall back to any untried cell.
+        candidates = [
+            (r, c) for r in range(R) for c in range(C)
+            if (r, c) not in tried
+        ]
+        best_r, best_c = random.choice(candidates)
 
     return {"row": best_r, "col": best_c}
 
