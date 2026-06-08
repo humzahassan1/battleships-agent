@@ -1,6 +1,6 @@
 # Battleships Agent
 
-A Python agent that plays competitive Battleships via a REST/JWT API. Current best: **391** (11W/4L, agentShipsLost 56).
+A Python agent that plays competitive Battleships via a REST/JWT API. Current best: **424** (13W/2L, agentShipsLost 58).
 
 ## Architecture
 
@@ -44,7 +44,8 @@ This exploits how density attackers work: interior cells receive higher probabil
 | — | DQ×2 | — | TIMEOUT: npx occasionally >10s per token |
 | Spaced placement | 260 | 9/6 | 1-cell buffer between ships, persistent signer |
 | — | 344 | 10/5 | variance / better opponent draw |
-| **Edge-biased placement** | **391** | **11/4** | ships near edges, opponents hunt center first |
+| Edge-biased placement | 391 | 11/4 | ships near edges, opponents hunt center first |
+| **Best so far** | **424** | **13/2** | edge-biased + parity hunt firing |
 
 **235 → diagnosed:** Sank 64 opponent ships but lost 62 of my own. Offense was already strong; defense was the bottleneck. Random placement lets opponents chain-hunt adjacent ships.
 
