@@ -61,6 +61,11 @@ def _request(method: str, path: str, capability: str, body: Any = None) -> dict:
         except urllib.error.HTTPError as e:
             body_text = e.read().decode(errors="replace")
             raise RuntimeError(f"HTTP {e.code} {e.reason} — {body_text}") from e
+        except urllib.error.URLError as e:
+            # URLError wraps OS-level errors (e.g. WinError 10054 = ConnectionReset)
+            if not isinstance(e.reason, _TRANSIENT):
+                raise
+            last_err = e
         except _TRANSIENT as e:
             last_err = e
     raise RuntimeError(f"Network error after 3 attempts: {last_err}") from last_err
