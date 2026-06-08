@@ -33,12 +33,13 @@ def _get_auth_header(capability: str) -> dict:
 
 def _request(method: str, path: str, capability: str, body: Any = None) -> dict:
     url = f"{BASE_URL}{path}"
+    data = _json.dumps(body).encode() if body is not None else None
     headers = {
-        "Content-Type": "application/json",
         "Accept": "application/json",
         **_get_auth_header(capability),
     }
-    data = _json.dumps(body).encode() if body is not None else None
+    if data is not None:
+        headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req) as resp:

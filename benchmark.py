@@ -16,6 +16,7 @@ import time
 
 from strategy import (
     SHIP_LENGTHS,
+    choose_layout,
     choose_shot_checkerboard,
     choose_shot_density,
 )
@@ -130,11 +131,70 @@ def _stats(name: str, results: list[int]) -> None:
     p75 = s[3 * n // 4]
     p90 = s[int(n * 0.90)]
 
-    print(f"\n{'─'*52}")
+    print(f"\n{'-'*52}")
     print(f"  {name}")
-    print(f"{'─'*52}")
+    print(f"{'-'*52}")
     print(f"  n={n}    avg={avg:.2f}   min={mn}  max={mx}")
     print(f"  p25={p25}   p50={p50}   p75={p75}   p90={p90}")
+
+
+def _placements_to_fleet(placements: list[dict]) -> dict[str, list[tuple[int, int]]]:
+    fleet = {}
+    for p in placements:
+        cls = p["shipClass"]
+        r, c = p["startRow"], p["startCol"]
+        length = SHIP_LENGTHS[cls]
+        if p["orientation"] == "HORIZONTAL":
+            fleet[cls] = [(r, c + i) for i in range(length)]
+        else:
+            fleet[cls] = [(r + i, c) for i in range(length)]
+    return fleet
+
+
+def benchmark_survival(n: int = 500) -> None:
+    """Compare random vs spaced placement: shots a density attacker needs to sink our fleet."""
+    layout_state = {"board": BOARD_TEMPLATE}
+    board_rng = random.Random(99)
+    tick = max(1, n // 5)
+
+    print(f"\nSurvival benchmark — {n} games, density attacker\n")
+
+    random.seed(13)
+    rand_results: list[int] = []
+    t0 = time.perf_counter()
+    for i in range(n):
+        fleet = _random_fleet(board_rng)
+        rand_results.append(_simulate(choose_shot_density, fleet))
+        if (i + 1) % tick == 0:
+            print(f"  {'random':30s}  {i+1:5d}/{n}"
+                  f"  avg={sum(rand_results)/len(rand_results):.1f}"
+                  f"  ({time.perf_counter()-t0:.1f}s)", flush=True)
+
+    random.seed(13)
+    spaced_results: list[int] = []
+    t0 = time.perf_counter()
+    for i in range(n):
+        placements = choose_layout(layout_state)
+        fleet = _placements_to_fleet(placements)
+        spaced_results.append(_simulate(choose_shot_density, fleet))
+        if (i + 1) % tick == 0:
+            print(f"  {'spaced (1-cell buffer)':30s}  {i+1:5d}/{n}"
+                  f"  avg={sum(spaced_results)/len(spaced_results):.1f}"
+                  f"  ({time.perf_counter()-t0:.1f}s)", flush=True)
+
+    _stats("Random placement (baseline)     ", rand_results)
+    _stats("Spaced placement (1-cell buffer)", spaced_results)
+
+    avg_rand = sum(rand_results) / n
+    avg_spaced = sum(spaced_results) / n
+    delta = avg_spaced - avg_rand
+    pct = 100 * delta / avg_rand
+
+    print(f"\n{'='*52}")
+    print(f"  Survival improvement: {delta:+.2f} shots ({pct:+.1f}%)")
+    print(f"  Random avg shots-to-sink:  {avg_rand:.2f}")
+    print(f"  Spaced avg shots-to-sink:  {avg_spaced:.2f}")
+    print(f"{'='*52}\n")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -167,11 +227,13 @@ def main() -> None:
     delta = avg_cb - avg_dn
     pct   = 100 * delta / avg_cb
 
-    print(f"\n{'═'*52}")
+    print(f"\n{'='*52}")
     print(f"  Improvement: {delta:+.2f} shots/game  ({pct:+.1f}%)")
     print(f"  Checkerboard avg: {avg_cb:.2f}")
     print(f"  Density avg:      {avg_dn:.2f}")
-    print(f"{'═'*52}\n")
+    print(f"{'='*52}\n")
+
+    benchmark_survival(N)
 
 
 if __name__ == "__main__":

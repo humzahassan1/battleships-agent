@@ -23,36 +23,49 @@ SHIP_LENGTHS: dict[str, int] = {
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
 def choose_layout(state: dict) -> list[dict]:
-    """Random-legal fleet placement."""
+    """Fleet placement with 1-cell buffer between ships to prevent chain-hunting."""
     rules = state["board"]
     R, C = rules["gridRows"], rules["gridCols"]
-    used: set[tuple[int, int]] = set()
     placements: list[dict] = []
 
-    for ship in rules["shipClasses"]:
-        length = ship["length"]
-        while True:
-            horiz = random.random() < 0.5
-            if horiz:
-                r = random.randrange(R)
-                c = random.randrange(C - length + 1)
-                cells = {(r, c + i) for i in range(length)}
-            else:
-                r = random.randrange(R - length + 1)
-                c = random.randrange(C)
-                cells = {(r + i, c) for i in range(length)}
-            if cells & used:
-                continue
-            used |= cells
-            placements.append({
-                "shipClass": ship["class"],
-                "orientation": "HORIZONTAL" if horiz else "VERTICAL",
-                "startRow": r,
-                "startCol": c,
-            })
-            break
+    def _try_place(use_buffer: bool) -> list[dict] | None:
+        ship_cells: set[tuple[int, int]] = set()
+        forbidden: set[tuple[int, int]] = set()
+        result: list[dict] = []
+        for ship in rules["shipClasses"]:
+            length = ship["length"]
+            placed = False
+            for _ in range(2000):
+                horiz = random.random() < 0.5
+                if horiz:
+                    r = random.randrange(R)
+                    c = random.randrange(C - length + 1)
+                    cells = [(r, c + i) for i in range(length)]
+                else:
+                    r = random.randrange(R - length + 1)
+                    c = random.randrange(C)
+                    cells = [(r + i, c) for i in range(length)]
+                blocked = forbidden if use_buffer else ship_cells
+                if any(cell in blocked for cell in cells):
+                    continue
+                ship_cells.update(cells)
+                for cr, cc in cells:
+                    for dr in (-1, 0, 1):
+                        for dc in (-1, 0, 1):
+                            forbidden.add((cr + dr, cc + dc))
+                result.append({
+                    "shipClass": ship["class"],
+                    "orientation": "HORIZONTAL" if horiz else "VERTICAL",
+                    "startRow": r,
+                    "startCol": c,
+                })
+                placed = True
+                break
+            if not placed:
+                return None
+        return result
 
-    return placements
+    return _try_place(use_buffer=True) or _try_place(use_buffer=False)  # type: ignore[return-value]
 
 
 def _find_sunk_cells(shots: list[dict]) -> set[tuple[int, int]]:
