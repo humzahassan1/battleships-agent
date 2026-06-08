@@ -19,9 +19,11 @@ def get_agent_id() -> str:
 
 def mint_token(agent_id: str, capability: str) -> str:
     """Return a fresh signed JWT asserting the given capability."""
+    # On Windows, npx resolves to npx.cmd (a batch script). CreateProcess
+    # can't run .cmd files directly — shell=True routes through cmd.exe.
     result = subprocess.run(
         [
-            "npx", "--yes", "@auth/agent-cli",
+            "npx", "@auth/agent-cli",
             "--storage-dir", STORAGE_DIR,
             "sign", agent_id,
             "--capabilities", capability,
@@ -29,6 +31,7 @@ def mint_token(agent_id: str, capability: str) -> str:
         capture_output=True,
         text=True,
         check=True,
+        shell=True,
     )
     return json.loads(result.stdout)["token"]
 
