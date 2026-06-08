@@ -1,0 +1,12 @@
+{
+  "name": "battleships-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "connect": "node connect.mjs"
+  },
+  "dependencies": {
+    "@auth/agent": "*",
+    "@auth/agent-cli": "*"
+  }
+}

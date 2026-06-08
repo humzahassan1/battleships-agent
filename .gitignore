@@ -1,0 +1,7 @@
+node_modules/
+__pycache__/
+agent-auth-storage/
+agent_id.txt
+*.pyc
+sim_out.txt
+sim_err.txt
