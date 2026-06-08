@@ -66,9 +66,13 @@ def _auto_commit(record: dict) -> None:
             ["git", "commit", "-m", msg],
             cwd=project_dir, check=True, capture_output=True, timeout=10,
         )
-        print(f"  (committed: {msg})")
+        subprocess.run(
+            ["git", "push", "origin", "main"],
+            cwd=project_dir, check=True, capture_output=True, timeout=30,
+        )
+        print(f"  (committed + pushed: {msg})")
     except Exception as e:
-        print(f"  (auto-commit failed: {e})")
+        print(f"  (auto-commit/push failed: {e})")
 
 
 def _print_summary(r: dict, note: str, prev_best: int | None) -> None:
