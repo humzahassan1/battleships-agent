@@ -9,8 +9,8 @@ directly (called at most once per game, no expiry risk from queueing).
 
 Reliability:
   - stderr drain thread prevents Node's event loop from blocking on a full pipe
-  - _read_line_with_timeout detects a hung signer and restarts it within 5s,
-    safely within the server's 10s turn deadline
+  - _read_line_with_timeout detects a hung signer and restarts it within 2s,
+    leaving 8s for the restart + new token within the server's 10s deadline
 """
 import json
 import os
@@ -89,7 +89,7 @@ def _mint_raw(agent_id: str, capability: str) -> str:
             _signer_proc.stdin.write(req.encode())
             _signer_proc.stdin.flush()
 
-            resp_bytes = _read_line_with_timeout(_signer_proc.stdout, timeout=5.0)
+            resp_bytes = _read_line_with_timeout(_signer_proc.stdout, timeout=2.0)
 
             if not resp_bytes or not resp_bytes.strip():
                 # Timed out or signer died — kill it and retry once with a fresh process
